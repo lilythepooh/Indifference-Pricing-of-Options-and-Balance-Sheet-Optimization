@@ -1,0 +1,30 @@
+%optimise balance sheet subject to all the constraint
+function [dx]=OptimiseBalanceSheet( )
+A=CalculateUneqCoeff( );
+b=ComputeUneqBound( );
+Asset=xlsread('Asset.xls');
+[~,na]=size(Asset);
+Liability=xlsread('Liability.xls');
+[~,nl]=size(Liability);
+Equity=xlsread('Equity.xls');
+[~,ne]=size(Equity);
+Aeqp=zeros(2,na+nl+ne);%equality constraint coefficient matrix of positive change
+Aeqp(1,1:na)=1;
+Aeqp(2,na+1:na+nl+ne)=1;
+Aeq=[Aeqp,-Aeqp];%equality constraint coefficient matrix of all change
+wt=generateBalanceSheetGrowthRate( );
+beq=[wt;wt];
+AssetProp=CalculateHistoricAssetProportionOfLastYear();
+LiabilityProp=CalculateHistoricLiabilityProportionOfLastYear();
+EquityProp=CalculateHistoricEquityProportionOfLastYear();
+lb=zeros(2*(na+nl+ne),1);
+ubp=[AssetProp,LiabilityProp,EquityProp];%increase by no higher than the original proportion
+ubn=[AssetProp,LiabilityProp,EquityProp];%reduce by no higher than the original proportion
+ub=[ubp,ubn]';
+nonlinCon=@NonlinearConstraint;
+fun=@Disutility;
+x0=zeros(2*(na+nl+ne),1);%initial point 0
+options = optimoptions('fmincon','Display','iter','Algorithm','sqp','PlotFcn',@optimplotx);
+[x] = fmincon(fun,x0,A,b,Aeq,beq,lb,ub,nonlinCon,options);
+dx=x(1:na+ne+nl,1)-x(na+nl+ne+1:2*(na+nl+ne),1);%total net change is increasem
+end
